@@ -1,8 +1,10 @@
 [package]
 name = "rillo"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 description = "Input handling"
+documentation = "https://docs.rs/rillo"
+homepage = "https://github.com/ecmatthee/rillo"
 readme = "readme.md"
 repository = "https://github.com/ecmatthee/rillo"
 license = "Apache-2.0"
