@@ -6,5 +6,5 @@
     Copyright (c) 2022 Ebert Charles Matthee. All rights reserved.
 */
 
-mod input;
-mod shapes;
+pub mod input;
+pub mod shapes;
