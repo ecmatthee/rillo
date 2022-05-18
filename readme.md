@@ -1,6 +1,6 @@
 # Rillo
 
-Rillo is library to simplify the handling of user input. 
+Rillo is library to simplify the building of TUI's. 
 
 
 ## Contributing
