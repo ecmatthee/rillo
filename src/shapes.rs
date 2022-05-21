@@ -41,6 +41,24 @@ impl Text {
         todo!()
     }
 
+    pub fn string_builder(&self) -> Vec<String> {
+        let text_iter = self.text.split_whitespace();
+
+        let mut text_vec: Vec<String> = Vec::new();
+        text_vec.push("".to_string());
+
+        let mut x: usize = 0;
+        for i in text_iter {
+            if text_vec[x].chars().count() + i.chars().count() <= self.line_legnth as usize {
+                text_vec[x] = text_vec[x].clone() + " " + i;
+            } else {
+                x += 1;
+                text_vec.push(" ".to_string() + &i.to_string());
+            }
+        }
+        text_vec
+    }
+
     pub fn dimensions(&self) -> (u16, u16) {
         let text_iter = self.string_builder();
 
@@ -64,24 +82,6 @@ impl Text {
         };
 
         (col, row)
-    }
-
-    pub fn string_builder(&self) -> Vec<String> {
-        let text_iter = self.text.split_whitespace();
-
-        let mut text_vec: Vec<String> = Vec::new();
-        text_vec.push("".to_string());
-
-        let mut x: usize = 0;
-        for i in text_iter {
-            if text_vec[x].chars().count() + i.chars().count() <= self.line_legnth as usize {
-                text_vec[x] = text_vec[x].clone() + " " + i;
-            } else {
-                x += 1;
-                text_vec.push(" ".to_string() + &i.to_string());
-            }
-        }
-        text_vec
     }
 }
 
