@@ -14,6 +14,77 @@ use crossterm::{
 use std::io;
 use std::io::stdout;
 
+pub struct Text {
+    // TODO Styled text
+    pub origin: (u16, u16),
+    pub text: String,
+    pub line_legnth: u16,
+    pub alignment: String,
+}
+
+impl Text {
+    pub fn draw(&self) -> io::Result<()> {
+        let mut stdout = stdout();
+        let text_vec = self.string_builder();
+
+        let mut f = 0;
+        for x in text_vec.iter() {
+            stdout.queue(cursor::MoveTo(self.origin.0, self.origin.1 + f))?;
+            stdout.queue(style::Print(x))?;
+            f += 1;
+        }
+
+        Ok(())
+    }
+
+    pub fn erase(&self) -> io::Result<()> {
+        todo!()
+    }
+
+    pub fn dimensions(&self) -> (u16, u16) {
+        let text_iter = self.string_builder();
+
+        // Adds extra row if overflow
+        let row: u16 = match text_iter.len().try_into() {
+            // TODO Error Handling
+            Ok(i) => i,
+            Err(_e) => 0,
+        };
+
+        let mut col = 0;
+        for i in text_iter {
+            if i.len() > col {
+                col = i.len();
+            }
+        }
+        let col: u16 = match col.try_into() {
+            // TODO Error Handling
+            Ok(i) => i,
+            Err(_e) => 0,
+        };
+
+        (col, row)
+    }
+
+    pub fn string_builder(&self) -> Vec<String> {
+        let text_iter = self.text.split_whitespace();
+
+        let mut text_vec: Vec<String> = Vec::new();
+        text_vec.push("".to_string());
+
+        let mut x: usize = 0;
+        for i in text_iter {
+            if text_vec[x].chars().count() + i.chars().count() <= self.line_legnth as usize {
+                text_vec[x] = text_vec[x].clone() + " " + i;
+            } else {
+                x += 1;
+                text_vec.push(" ".to_string() + &i.to_string());
+            }
+        }
+        text_vec
+    }
+}
+
 pub struct Rectangle {
     // TODO Color as field
     pub origin: (u16, u16),
@@ -37,10 +108,7 @@ impl Rectangle {
         let col = self.size_col - 1;
         let row = self.size_row - 1;
 
-        let term_max = match terminal::size() {
-            Ok(i) => i,
-            Err(..) => (1, 1),
-        };
+        let term_max = term_size();
 
         // Check if drawing will on current terminal screen size
         if (self.origin.0 + col > term_max.0) || (self.origin.1 + row > term_max.1) {
@@ -124,5 +192,12 @@ impl Line {
 
     pub fn erase(&self) -> io::Result<()> {
         todo!();
+    }
+}
+
+pub fn term_size() -> (u16, u16) {
+    match terminal::size() {
+        Ok(i) => i,
+        Err(_e) => (1, 1),
     }
 }
