@@ -101,6 +101,26 @@ pub struct Rectangle {
     pub char_fill: char,
 }
 
+impl Default for Rectangle {
+    fn default() -> Self {
+        let term_max = term_size();
+        Rectangle {
+            origin: (0, 0),
+            size_col: term_max.0,
+            size_row: term_max.1,
+            char_corner_top_left: '┌',
+            char_corner_top_right: '┐',
+            char_corner_bottom_left: '└',
+            char_corner_bottom_right: '┘',
+            char_horizontal_top: '─',
+            char_horizontal_bottom: '─',
+            char_verticle_left: '│',
+            char_verticle_right: '│',
+            char_fill: '#',
+        }
+    }
+}
+
 impl Rectangle {
     pub fn draw(&self) -> io::Result<()> {
         let mut stdout = stdout();
