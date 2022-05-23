@@ -9,7 +9,7 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use std::io;
 
-pub fn read_line() -> io::Result<String> {
+pub fn read_string() -> io::Result<String> {
     let mut line = String::new();
     while let Event::Key(KeyEvent { code, .. }) = event::read()? {
         match code {
