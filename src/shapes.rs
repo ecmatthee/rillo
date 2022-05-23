@@ -19,7 +19,7 @@ pub struct Text {
     pub origin: (u16, u16),
     pub text: String,
     pub line_legnth: u16,
-    pub alignment: String,
+    pub alignment: char,
 }
 
 impl Text {
@@ -27,11 +27,17 @@ impl Text {
         let mut stdout = stdout();
         let text_vec = self.string_builder();
 
-        let mut f = 0;
+        let mut current_row = 0;
+        let dimensions = self.dimensions();
         for x in text_vec.iter() {
-            stdout.queue(cursor::MoveTo(self.origin.0, self.origin.1 + f))?;
-            stdout.queue(style::Print(x))?;
-            f += 1;
+            stdout.queue(cursor::MoveTo(self.origin.0, self.origin.1 + current_row))?;
+            match self.alignment {
+                '<' => stdout.queue(style::Print(format!("{:<1$}", x, dimensions.0 as usize)))?,
+                '^' => stdout.queue(style::Print(format!("{:^1$}", x, dimensions.0 as usize)))?,
+                '>' => stdout.queue(style::Print(format!("{:>1$}", x, dimensions.0 as usize)))?,
+                _ => stdout.queue(style::Print(format!("{:<1$}", x, dimensions.0 as usize)))?,
+            };
+            current_row += 1;
         }
 
         Ok(())
@@ -189,11 +195,19 @@ impl Rectangle {
         todo!();
     }
 
+    pub fn fill_background(&self) -> io::Result<()> {
+        todo!();
+    }
+
     pub fn erase(&self) -> io::Result<()> {
         todo!();
     }
 
     pub fn erase_fill(&self) -> io::Result<()> {
+        todo!();
+    }
+
+    pub fn erase_background(&self) -> io::Result<()> {
         todo!();
     }
 }
