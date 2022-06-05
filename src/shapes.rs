@@ -94,8 +94,7 @@ impl Text {
 pub struct Rectangle {
     // TODO Color as field
     pub origin: (u16, u16),
-    pub size_col: u16,
-    pub size_row: u16,
+    pub dimensions: (u16, u16),
     pub char_corner_top_left: char,
     pub char_corner_top_right: char,
     pub char_corner_bottom_left: char,
@@ -112,8 +111,7 @@ impl Default for Rectangle {
         let term_max = term_size();
         Rectangle {
             origin: (0, 0),
-            size_col: term_max.0,
-            size_row: term_max.1,
+            dimensions: (term_max.0, term_max.1),
             char_corner_top_left: '┌',
             char_corner_top_right: '┐',
             char_corner_bottom_left: '└',
