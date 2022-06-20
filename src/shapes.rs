@@ -9,10 +9,12 @@
 use crossterm::{
     cursor,
     style::{self, Stylize},
-    terminal, QueueableCommand,
+    QueueableCommand,
 };
 use std::io;
 use std::io::stdout;
+
+use crate::terminal::term_size;
 
 pub struct Text {
     // TODO Styled text
@@ -129,8 +131,8 @@ impl Rectangle {
     pub fn draw(&self) -> io::Result<()> {
         let mut stdout = stdout();
 
-        let col = self.size_col - 1;
-        let row = self.size_row - 1;
+        let col = self.dimensions.0 - 1;
+        let row = self.dimensions.1 - 1;
 
         let term_max = term_size();
 
@@ -224,12 +226,5 @@ impl Line {
 
     pub fn erase(&self) -> io::Result<()> {
         todo!();
-    }
-}
-
-pub fn term_size() -> (u16, u16) {
-    match terminal::size() {
-        Ok(i) => i,
-        Err(_e) => (1, 1),
     }
 }
