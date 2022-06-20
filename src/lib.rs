@@ -9,3 +9,4 @@
 pub mod input;
 pub mod readline;
 pub mod shapes;
+pub mod terminal;
