@@ -5,121 +5,140 @@
 
     Copyright (c) 2022 Ebert Charles Matthee. All rights reserved.
 */
-
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    style, ExecutableCommand, QueueableCommand,
+    style,
+    terminal::{disable_raw_mode, enable_raw_mode, is_raw_mode_enabled},
+    ExecutableCommand, QueueableCommand,
 };
-use std::io::{self, stdout, Stdout, Write};
+use std::io::{stdout, Result, Write};
 
-//TODO Line Wrapping, Style, Multiline editing
+use crate::terminal::term_size;
 
-pub struct ReadLine {
+pub struct Readline {
     pub echo: bool,
     pub prompt: String,
-    pub ignored: Vec<KeyCode>,
-    pub dimensions: (u16, u16),
+    pub origin: (u16, u16),
+    pub line_length: u16,
+    pub ignored_keys: Vec<(KeyCode, KeyModifiers)>,
 }
 
-impl ReadLine {
-    pub fn read_loop(&self) -> io::Result<String> {
-        let mut stdout = stdout();
-        let mut buf = String::new();
-        stdout.execute(style::Print(&self.prompt))?;
-        stdout.write(b"\x08");
-        stdout.execute(cursor::SetCursorShape(cursor::CursorShape::Block));
+impl Default for Readline {
+    fn default() -> Self {
+        let ignored_list: Vec<(KeyCode, KeyModifiers)> = Vec::new();
+        Readline {
+            echo: true,
+            prompt: ">> ".to_string(),
+            origin: (0, 0),
+            line_length: 0,
+            ignored_keys: ignored_list,
+        }
+    }
+}
 
-        let origin = cursor::position()?;
+impl Readline {
+    pub fn readline(&self) -> Result<String> {
+        let mut raw_manual_enable = false;
+        if !is_raw_mode_enabled()? {
+            enable_raw_mode()?;
+            raw_manual_enable = true;
+        }
+
+        let mut stdout = stdout();
+        let mut line = String::new();
+
+        // stdout.queue(cursor::MoveTo(self.origin.0, self.origin.1))?;
+        stdout.queue(style::Print(&self.prompt))?;
+        stdout.flush()?;
+
+        let string_origin = cursor::position()?;
 
         while let Event::Key(KeyEvent { code, modifiers }) = event::read()? {
-            if !(self.ignored.iter().any(|&i| i == code)) {
+            let position = cursor::position()?;
+            let string_position = position.0 - string_origin.0;
+            if !(self.ignored_keys.iter().any(|&i| i == (code, modifiers))) {
+                // println!("{:?}", modifiers);
                 match (code, modifiers) {
                     (KeyCode::Enter, KeyModifiers::NONE) => {
+                        if raw_manual_enable {
+                            disable_raw_mode()?;
+                        };
                         break;
                     }
-                    (KeyCode::Right, KeyModifiers::NONE) => {
-                        let bchar = cursor::position().unwrap().0 - origin.0;
-                        let b = buf.chars().count() as u16;
-                        if bchar < b {
-                            stdout.queue(cursor::MoveRight(1))?;
+                    (KeyCode::Backspace, KeyModifiers::NONE) => {
+                        if position > string_origin {
+                            line.remove(string_position as usize - 1);
+                            reprint_line(&line, &string_origin, &self.line_length)?;
+                            stdout.queue(cursor::MoveTo(position.0 - 1, position.1))?;
                             stdout.flush()?;
                         }
                     }
                     (KeyCode::Left, KeyModifiers::NONE) => {
-                        let bchar = cursor::position()?;
-                        if bchar.0 > origin.0 {
-                            stdout.queue(cursor::MoveLeft(1))?;
-                            stdout.flush()?;
+                        if position.0 > string_origin.0 {
+                            stdout.execute(cursor::MoveLeft(1))?;
                         }
                     }
-                    (KeyCode::Backspace, KeyModifiers::NONE) => {
-                        let mut bchar = cursor::position()?;
-
-                        if bchar.0 > origin.0 {
-                            stdout.queue(cursor::MoveLeft(1))?;
-                            bchar.0 -= 1;
-
-                            clear_string(&mut stdout, &mut buf, &origin, &bchar)?;
-                            buf.remove(bchar.0 as usize - origin.0 as usize);
-                            reprint_string(self.echo, &mut stdout, &buf, &origin)?;
-                            stdout.queue(cursor::MoveTo(bchar.0, bchar.1))?;
-                            stdout.flush()?;
+                    (KeyCode::Right, KeyModifiers::NONE) => {
+                        let string_length = line.chars().count() as u16;
+                        if string_position < string_length {
+                            stdout.execute(cursor::MoveRight(1))?;
                         }
                     }
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                        break;
+                        if raw_manual_enable {
+                            disable_raw_mode()?;
+                        };
+                        println!("CTRL-C");
                     }
-                    (KeyCode::Char(c), KeyModifiers::NONE) => {
-                        let bchar = cursor::position()?;
-                        let x = bchar.0 - origin.0;
-                        buf.insert(x.into(), c);
-                        reprint_string(self.echo, &mut stdout, &buf, &origin)?;
-                        stdout.queue(cursor::MoveTo(bchar.0 + 1, bchar.1))?;
+                    (KeyCode::Char('c'), _) => {
+                        if modifiers == (KeyModifiers::CONTROL | KeyModifiers::ALT) {
+                            if raw_manual_enable {
+                                disable_raw_mode()?;
+                            };
+                            println!("Wo");
+                            break;
+                        };
+                    }
+                    (KeyCode::Char(char), KeyModifiers::NONE) => {
+                        line.insert(string_position.into(), char);
+                        reprint_line(&line, &string_origin, &self.line_length)?;
+                        stdout.queue(cursor::MoveTo(position.0 + 1, position.1))?;
                         stdout.flush()?;
                     }
-                    (KeyCode::Char(c), KeyModifiers::SHIFT) => {
-                        let bchar = cursor::position()?;
-                        let x = bchar.0 - origin.0;
-                        buf.insert(x.into(), c);
-                        reprint_string(self.echo, &mut stdout, &buf, &origin)?;
-                        stdout.queue(cursor::MoveTo(bchar.0 + 1, bchar.1))?;
+                    (KeyCode::Char(char), KeyModifiers::SHIFT) => {
+                        line.insert(string_position.into(), char);
+                        reprint_line(&line, &string_origin, &self.line_length)?;
+                        stdout.queue(cursor::MoveTo(position.0 + 1, position.1))?;
                         stdout.flush()?;
                     }
                     _ => {}
                 }
-            }
+            };
         }
 
-        Ok(buf)
+        Ok(line)
     }
 }
 
-fn clear_string(
-    stdout: &mut Stdout,
-    buf: &mut String,
-    origin: &(u16, u16),
-    clear_start: &(u16, u16),
-) -> io::Result<()> {
-    let string_end = buf.chars().count() as u16 + origin.0;
-
-    for x in clear_start.0..string_end {
-        stdout.queue(cursor::MoveTo(x, clear_start.1))?;
-        stdout.queue(style::Print(" "))?;
+fn clear_line(string_origin: &(u16, u16), line_length: &u16) -> Result<()> {
+    let mut stdout = stdout();
+    let mut clear_length = *line_length;
+    if clear_length == 0 {
+        clear_length = term_size().0;
     }
 
+    for x in string_origin.0..clear_length {
+        stdout.queue(cursor::MoveTo(x, string_origin.1))?;
+        stdout.queue(style::Print(" "))?;
+    }
     Ok(())
 }
 
-fn reprint_string(
-    echo: bool,
-    stdout: &mut Stdout,
-    buf: &String,
-    origin: &(u16, u16),
-) -> io::Result<()> {
-    if echo {
-        stdout.queue(cursor::MoveTo(origin.0, origin.1))?;
-        stdout.queue(style::Print(&buf))?;
-    }
+fn reprint_line(line: &String, string_origin: &(u16, u16), line_length: &u16) -> Result<()> {
+    let mut stdout = stdout();
+    clear_line(&string_origin, line_length)?;
+    stdout.queue(cursor::MoveTo(string_origin.0, string_origin.1))?;
+    stdout.queue(style::Print(line))?;
     Ok(())
 }
