@@ -6,6 +6,7 @@
     Copyright (c) 2022 Ebert Charles Matthee. All rights reserved.
 */
 
+pub mod error;
 pub mod input;
 pub mod readline;
 pub mod shapes;
