@@ -5,6 +5,11 @@
 
     Copyright (c) 2022 Ebert Charles Matthee. All rights reserved.
 */
+
+use std::io::{stdout, Write};
+
+use crate::{error::ReadlineError, terminal::term_size};
+
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -12,9 +17,6 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, is_raw_mode_enabled},
     ExecutableCommand, QueueableCommand,
 };
-use std::io::{stdout, Result, Write};
-
-use crate::terminal::term_size;
 
 pub struct Readline {
     pub echo: bool,
@@ -38,7 +40,7 @@ impl Default for Readline {
 }
 
 impl Readline {
-    pub fn readline(&self) -> Result<String> {
+    pub fn readline(&self) -> Result<String, ReadlineError> {
         let mut raw_manual_enable = false;
         if !is_raw_mode_enabled()? {
             enable_raw_mode()?;
@@ -61,6 +63,7 @@ impl Readline {
                 // println!("{:?}", modifiers);
                 match (code, modifiers) {
                     (KeyCode::Enter, KeyModifiers::NONE) => {
+                        stdout.write(b"\n\r")?;
                         if raw_manual_enable {
                             disable_raw_mode()?;
                         };
@@ -86,20 +89,28 @@ impl Readline {
                         }
                     }
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
+                        stdout.write(b"\n\r")?;
                         if raw_manual_enable {
                             disable_raw_mode()?;
                         };
-                        println!("CTRL-C");
+                        return Err(ReadlineError::Interrupted);
                     }
-                    (KeyCode::Char('c'), _) => {
-                        if modifiers == (KeyModifiers::CONTROL | KeyModifiers::ALT) {
-                            if raw_manual_enable {
-                                disable_raw_mode()?;
-                            };
-                            println!("Wo");
-                            break;
+                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                        stdout.write(b"\n\r")?;
+                        if raw_manual_enable {
+                            disable_raw_mode()?;
                         };
+                        return Err(ReadlineError::EoF);
                     }
+                    // (KeyCode::Char('c'), _) => {
+                    //     if modifiers == (KeyModifiers::CONTROL | KeyModifiers::ALT) {
+                    //         if raw_manual_enable {
+                    //             disable_raw_mode()?;
+                    //         };
+                    //         println!("Wo");
+                    //         break;
+                    //     };
+                    // }
                     (KeyCode::Char(char), KeyModifiers::NONE) => {
                         line.insert(string_position.into(), char);
                         reprint_line(&line, &string_origin, &self.line_length)?;
@@ -121,7 +132,7 @@ impl Readline {
     }
 }
 
-fn clear_line(string_origin: &(u16, u16), line_length: &u16) -> Result<()> {
+fn clear_line(string_origin: &(u16, u16), line_length: &u16) -> crossterm::Result<()> {
     let mut stdout = stdout();
     let mut clear_length = *line_length;
     if clear_length == 0 {
@@ -135,7 +146,11 @@ fn clear_line(string_origin: &(u16, u16), line_length: &u16) -> Result<()> {
     Ok(())
 }
 
-fn reprint_line(line: &String, string_origin: &(u16, u16), line_length: &u16) -> Result<()> {
+fn reprint_line(
+    line: &String,
+    string_origin: &(u16, u16),
+    line_length: &u16,
+) -> crossterm::Result<()> {
     let mut stdout = stdout();
     clear_line(&string_origin, line_length)?;
     stdout.queue(cursor::MoveTo(string_origin.0, string_origin.1))?;
